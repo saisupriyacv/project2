@@ -26,7 +26,7 @@ module debounce
 	// parameters
 	parameter integer	CLK_FREQUENCY_HZ		= 100000000, 
 	parameter integer	DEBOUNCE_FREQUENCY_HZ	= 250,
-	parameter integer	RESET_POLARITY_LOW		= 1,
+	parameter integer	RESET_POLARITY_LOW		= 0,
 	parameter integer 	CNTR_WIDTH 				= 32,
 	
 	parameter integer	SIMULATE				= 0,
@@ -107,7 +107,7 @@ module debounce
 		case(shift_pb5) 4'b0000: pbtn_db[5] <= 0; 4'b1111: pbtn_db[5] <= 1; endcase
 		
 		//debounced slider switch outputs
-		case(shift_swtch0) 4'b0000: swtch_db[0] <= 0;  4'b1111: swtch_db[0] <= 1; endcase
+  		case(shift_swtch0) 4'b0000: swtch_db[0] <= 0;  4'b1111: swtch_db[0] <= 1; endcase
 		case(shift_swtch1) 4'b0000: swtch_db[1] <= 0;  4'b1111: swtch_db[1] <= 1; endcase
 		case(shift_swtch2) 4'b0000: swtch_db[2] <= 0;  4'b1111: swtch_db[2] <= 1; endcase
 		case(shift_swtch3) 4'b0000: swtch_db[3] <= 0;  4'b1111: swtch_db[3] <= 1; endcase	
