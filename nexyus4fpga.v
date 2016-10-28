@@ -221,11 +221,6 @@ bot_if(
 	.dp(decpts),
 	.LEDS(led));
 	
-	
-
-
-
-
  endmodule
  
  

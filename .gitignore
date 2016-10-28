@@ -55,3 +55,4 @@ Temporary Items
 *.jou
 *.log
 *.str
+*.runs/
