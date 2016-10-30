@@ -155,12 +155,12 @@ module Nexys4fpga (
 	
 //instantiate Project2Demo module
 	
-proj2demo #(
+lineFollowing #(
 	.C_FAMILY		   ("7S"),   	//Family 'S6' or 'V6'
 	.C_RAM_SIZE_KWORDS	(2),     	//Program size '1', '2' or '4'
 	.C_JTAG_LOADER_ENABLE	(1)		//Include JTAG Loader when set to 1'b1 
 	)     	
-  proj2demo (    		       	
+  lineFollow1 (    		       	
  	.rdl 			(rdl),
 	.enable 		(bram_enable),
 	.address 		(address),
