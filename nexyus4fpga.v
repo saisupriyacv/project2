@@ -15,11 +15,13 @@ module Nexys4fpga (
 	output	[7:0]		an,						// Seven segment display anode pins	
 	
 	
-	output	[7:0]		JA						// JA Header 
+	output	[7:0]		JA	,					// JA Header 
+	output [3:0] vga_red, vga_green , vga_blue,
+	output vga_hsync,vga_vsync
 );	
 	// parameter
 	parameter SIMULATE = 0;
-	
+	wire clock; // on board 100 hz clock generator
 	wire   [9:0]		vid_row;
 	wire   [9:0]		vid_col;
 	wire  [1:0]		vid_pixel_out;
@@ -58,6 +60,13 @@ module Nexys4fpga (
 	wire	[7:0]		LMDist_reg;
 	wire	[7:0]		RMDist_reg;
 	wire				upd_sysregs;
+	wire [1:0] World_Pixcel;
+	wire [1:0] Icon_pacman;
+	wire videoon;
+	wire vgaclock;
+	wire locked;
+    assign dp = segs_int[7];
+					// leds show the debounced switches
 
 // setup the intial display 
 	/*assign	dig7 = {5'd00};					// intially display all zeros
@@ -73,7 +82,7 @@ module Nexys4fpga (
 
 		
 	// global assigns
-	assign	sysclk = clk;
+	//assign	sysclk = clk;
 	assign 	sysreset = ~db_btns[0]; // btnCpuReset is asserted low
 	
 	//assign dp = segs_int[7];
@@ -221,7 +230,54 @@ bot_if(
 	.dp(decpts),
 	.LEDS(led));
 	
- endmodule
+dtg dg(
+	.clock(vgaclock), 
+	.rst(sysreset),
+	.horiz_sync(vga_hsync),
+	.vert_sync(vga_vsync),
+	.video_on(videoon),		
+	.pixel_row(vid_row),
+	.pixel_column(vid_col)
+);
+
+
+Colorizer Col(
+.Clock(vgaclock),
+.Reset(sysreset),
+.World_px(vid_pixel_out),
+.Icon_px(2'd0),
+.Video_on(videoon),
+.red(vga_red),
+.green(vga_green),
+.blue(vga_blue)
+);	
+
+Icon IC1(
+.vga_clock(vgaclock),
+.reset(sysreset),
+.LocX(LocX_reg),
+.LocY(LocY_reg),
+.Botinfo(BotInfo_reg),
+.Rowpx(vid_row),
+.Colpx(vid_col),
+.icon(Icon_pacman)
+);
+
+
+clk_wiz_0 CG(
+// Clock in ports
+ .clk_in1(clk),
+ .sysclk(sysclk),
+ .vga_clk(vgaclock),
+ .reset(1'b0),
+ .locked(locked)
+
+);
+
+
+
+
+endmodule
  
  
  
