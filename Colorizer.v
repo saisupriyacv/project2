@@ -27,7 +27,7 @@ output reg [3:0] red, green, blue) ;
 parameter background = 12'hfff;
 parameter blackline = 12'h000;
 parameter obstruction = 12'h00f; // blue color for obstruction
-parameter icon1 = 12'hff0; // yellow
+parameter icon1 = 12'hf00; // yellow
 parameter icon2 = 12'h000; // black for an eye of packman
 
 

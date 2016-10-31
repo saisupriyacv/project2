@@ -752,39 +752,62 @@ follow_line:                                    ; The robot is still following t
         
 new_command:         
         FETCH       s2, SP_OLD_HEADING
-        FETCH       s1, SP_DEBUG
+        AND         s2, BOT_MVMT_MASK
+        LOAD        s1, 00
         CALL        LED_wrleds_hi
-        XOR         s1, FF
-        STORE       s1, SP_DEBUG
         LOAD        s0, Sensor                  ;       getSensorState();    
         AND         s0, MASK_BLK_L_SENSORS      ;
         COMPARE     s0, BLACK_LINE_DETECTED     ;   check for black line
         JUMP        NZ, line_not_found
 line_found:                                     ;   if(line_found):
-        AND         s2, BOT_MVMT_MASK
         COMPARE     s2, BOT_MVMT_FWD            ;       if bot_mvmt == forward:
                                                 ;           //Previous movement was forward and moved onto black line       
         JUMP        NZ, line_found_rev
 line_found_fwd:
+        LOAD        s1, 01
+        CALL        LED_wrleds_hi
         CALL        reset_turn_state            ;           reset_turn_state()  //Successfully found line, reset turning state variables
         CALL        try_forward                 ;           try_forward()
         JUMP        end_next_step
 line_found_rev:
+        LOAD        s1, 02
+        CALL        LED_wrleds_hi
         COMPARE     s2, BOT_MVMT_REV
                                                 ;       else if bot_mvmt == reverse:
         JUMP        NZ, line_found_else
         CALL        turn                        ;           turn()  //Previously reversed back onto known line
         JUMP        end_next_step
+;line_try_turn:
+;        COMPARE     s2, BOT_MVMT_FL
+;        JUMP        Z, line_found_turn
+;        COMPARE     s2, BOT_MVMT_FR
+;        JUMP        Z, line_found_turn
+;        COMPARE     s2, BOT_MVMT_SL
+;        JUMP        Z, line_found_turn
+;        COMPARE     s2, BOT_MVMT_SR
+;        JUMP        NZ, line_found_else
+;line_found_turn:
+    
                                                 ;       else (stopped, turning, other)
 line_found_else:
+        LOAD        s1, 04
+        CALL        LED_wrleds_hi
         CALL        try_forward                 ;           try_forward()   //If turning, need to move forward. If stopped or other, try moving forward
         JUMP        end_next_step
 
 line_not_found:                                 ;   else:
-        AND         s2, BOT_MVMT_MASK
+        LOAD        s1, 08
+        CALL        LED_wrleds_hi
         COMPARE     s2, BOT_MVMT_FWD
-        CALL        Z, reverse                  ;       if(bot_mvmt == forward): reverse();
-        CALL        NZ, end_of_line             ;       else: end_of_line();    
+        Jump        NZ, line_not_found_else
+        LOAD        s1, 08
+        CALL        LED_wrleds_hi
+        CALL        reverse                  ;       if(bot_mvmt == forward): reverse();
+        Jump        end_next_step
+line_not_found_else:
+        LOAD        s1, 10
+        CALL        LED_wrleds_hi
+        CALL        end_of_line             ;       else: end_of_line();    
         JUMP        end_next_step
     
 end_next_step:                                  ;   capture current location and heading
@@ -792,7 +815,7 @@ end_next_step:                                  ;   capture current location and
         STORE       LocY, SP_OLD_Y
         STORE       Botinf, SP_OLD_HEADING
         RETURN                                  ;   return
-
+        
 ; =====================================
 ; === try_forward =====================
 ; =====================================  
