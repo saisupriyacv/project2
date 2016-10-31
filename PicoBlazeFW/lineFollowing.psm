@@ -351,7 +351,8 @@ CONSTANT LF_INVALID_BOT_INFO,   48  ; Constant for initialization, forward and b
 ; =============================
 CONSTANT LF_FORWARD,        00      ; Rojobot is ready to move forward
 CONSTANT LF_TURNING,        01      ; Just moved bot, check line, and reverse next if line not found
-CONSTANT LF_SWITCH_DIR,     02      ; Just reversed, need to turn to try new
+CONSTANT LF_REVERSE,        02      ; Just reversed, need to turn to try new
+CONSTANT LF_STOP,           03      ; Bot is stopped
 
 ; ===============
 ; === main()  ===
@@ -751,8 +752,7 @@ follow_line:                                    ; The robot is still following t
         RETURN                                  ; Skip update if movement from previous update hasn't happened yet        
         
 new_command:         
-        FETCH       s2, SP_OLD_HEADING
-        AND         s2, BOT_MVMT_MASK
+        FETCH       s2, SP_LF_STATE
         LOAD        s1, 00
         CALL        LED_wrleds_hi
         LOAD        s0, Sensor                  ;       getSensorState();    
@@ -760,7 +760,7 @@ new_command:
         COMPARE     s0, BLACK_LINE_DETECTED     ;   check for black line
         JUMP        NZ, line_not_found
 line_found:                                     ;   if(line_found):
-        COMPARE     s2, BOT_MVMT_FWD            ;       if bot_mvmt == forward:
+        COMPARE     s2, LF_FORWARD              ;       if bot_mvmt == forward:
                                                 ;           //Previous movement was forward and moved onto black line       
         JUMP        NZ, line_found_rev
 line_found_fwd:
@@ -772,7 +772,7 @@ line_found_fwd:
 line_found_rev:
         LOAD        s1, 02
         CALL        LED_wrleds_hi
-        COMPARE     s2, BOT_MVMT_REV
+        COMPARE     s2, LF_REVERSE
                                                 ;       else if bot_mvmt == reverse:
         JUMP        NZ, line_found_else
         CALL        turn                        ;           turn()  //Previously reversed back onto known line
@@ -796,13 +796,11 @@ line_found_else:
         JUMP        end_next_step
 
 line_not_found:                                 ;   else:
-        LOAD        s1, 08
-        CALL        LED_wrleds_hi
-        COMPARE     s2, BOT_MVMT_FWD
+        COMPARE     s2, LF_FORWARD
         Jump        NZ, line_not_found_else
         LOAD        s1, 08
         CALL        LED_wrleds_hi
-        CALL        reverse                  ;       if(bot_mvmt == forward): reverse();
+        CALL        reverse                     ;       if(bot_mvmt == forward): reverse();
         Jump        end_next_step
 line_not_found_else:
         LOAD        s1, 10
@@ -814,6 +812,7 @@ end_next_step:                                  ;   capture current location and
         STORE       LocX, SP_OLD_X
         STORE       LocY, SP_OLD_Y
         STORE       Botinf, SP_OLD_HEADING
+        STORE       s2, SP_LF_STATE
         RETURN                                  ;   return
         
 ; =====================================
@@ -823,9 +822,12 @@ try_forward:                                    ;   def try_forward():
         LOAD        s0, Sensor                  ;
         AND         s0, MASK_PROX_SENSORS       ;
         COMPARE     s0, PROX_SENSOR_FORWARD     ;       if(forward_prox_sensor):    
-        CALL        Z, turn                     ;           turn()
-        RETURN      Z                           ;       else:
+        JUMP        NZ, move_forward
+        CALL        turn                        ;           turn()
+        RETURN                                  ;       else:
+move_forward:
         LOAD        s0, SP_LFRF                 ;
+        LOAD        s2, LF_FORWARD
         OUTPUT      s0, PA_MOTCTL_IN            ;           motor_ctl_in = LeftForward, RightForward
         RETURN
 
@@ -833,7 +835,7 @@ try_forward:                                    ;   def try_forward():
 ; === turn ============================
 ; =====================================  
 turn:                                           ;   def turn():
-        LOAD        s0, SP_LF_COUNT             ;
+        FETCH       s0, SP_LF_COUNT             ;
         COMPARE     s0, LF_MAX_TURN_COUNT       ;
         JUMP        NZ, turn_check_greater
         CALL        end_of_line                 ;       if(turn_count == max_turn_count):
@@ -847,11 +849,13 @@ turn_check_180:
         JUMP        NZ, turn_else               ;
         LOAD        s1, SP_LFRR                 ;
         OUTPUT      s1, PA_MOTCTL_IN            ;           turn_right_2x()
-        ADD         s0, 02                      ;           turn_count += 2  
+        ADD         s0, 02                      ;           turn_count += 2 
+        LOAD        s2, LF_TURNING
         JUMP        turn_end
 turn_else:                                      ;       else:
         LOAD        s1, SP_LFRS                 ;
         OUTPUT      s1, PA_MOTCTL_IN            ;           turn_right_1x()
+        LOAD        s2, LF_TURNING
         ADD         s0, 01                      ;           turn_count += 1
 turn_end:
         STORE       s0, SP_LF_COUNT
@@ -863,6 +867,7 @@ turn_end:
 reverse:                                        ;   def reverse():
         LOAD        s0, SP_LRRR                 ;
         OUTPUT      s0, PA_MOTCTL_IN            ;       motor_ctl_in = LeftReverse, RightReverse
+        LOAD        s2, LF_REVERSE
         RETURN
 
 ; =====================================
@@ -873,6 +878,7 @@ end_of_line:
         OUTPUT      s0, PA_MOTCTL_IN            ; Stop the bot    
         LOAD        s6, LF_END_OF_LINE          ; Set the end of line flag
         STORE       s6, SP_LF_EOL
+        LOAD        s2, LF_STOP
         RETURN   
 ; =====================================
 ; === reset_turn_state ================
