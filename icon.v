@@ -11,7 +11,7 @@ wire [9:0] Locx_reg, Locy_reg;
 
 reg signed [10:0] rowaddr, coladdr;
 wire [1:0] data_out;
-reg [11:0] romaddr;
+reg [10:0] romaddr;
 
 Icon_Rom memory(
 .clka(vga_clock),
@@ -24,8 +24,8 @@ assign Locy_reg = {LocY, 2'b00};
 
 always @ (posedge vga_clock)
 begin
-	rowaddr <= Rowpx - Locy_reg + 9;
-	coladdr <= Colpx - Locx_reg + 9;
+	rowaddr <= Rowpx - Locy_reg + 8;
+	coladdr <= Colpx - Locx_reg + 8;
 	romaddr <= {Botinfo[2:0],rowaddr[3:0],coladdr[3:0]};
 	
 	if(reset)

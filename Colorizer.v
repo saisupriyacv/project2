@@ -27,8 +27,9 @@ output reg [3:0] red, green, blue) ;
 parameter background = 12'hfff;
 parameter blackline = 12'h000;
 parameter obstruction = 12'h00f; // blue color for obstruction
-parameter icon1 = 12'hf00; // yellow
-parameter icon2 = 12'h000; // black for an eye of packman
+parameter icon1 = 12'b1111_0000_0000; // red
+parameter icon2 = 12'b0000_0000_0000; // black
+
 
 
 always @(posedge Clock)
