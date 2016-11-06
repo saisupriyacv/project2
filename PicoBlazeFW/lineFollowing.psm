@@ -57,7 +57,18 @@
 ; CPU. YOU MAY (OR NOT) FIND SOME OF THIS CODE APPLICABLE TO YOUR OTHER PROJECTS
 ;
 ; -----------------------------------------------------------------	
-
+;   MODIFICATIONS MADE TO DEMO FIRMWARE
+; =======================================
+;   The pushbutton inputs were removed, and replaced with an autonomous line following algorithm.
+;   The assumption is that the robot starts on a black line, or within one tile of a black line.
+;   The robot then tests squares for the black line and makes decisions based on this input.
+;   The line following algorithm has the robot only turning right in search for the black line,
+;   and it skips checking 180 degrees from the original heading to avoid doubling back on itself.
+;
+;   There is a deviation from the project specification in the line following algorithm: instead of stopping
+;   when a wall is detected, it stops when the line ends. The distinction is that, with this addition, it would
+;   be possible for the robot to follow a line that is adjacent to an obstacle.
+;
 ; ============================================
 ; === Register Names                       ===
 ; === s6 - s0 registers are not dedicated  ===
@@ -310,7 +321,7 @@ CONSTANT	SP_DIG6,		31		;
 CONSTANT	SP_DIG5,		32		;
 CONSTANT	SP_DIG4,		33		;
 
-; Constants for use ORing with the BotInfo register
+; Constants for use ORing with the BotInfo register. Allows for COMPARE without shifting.
 CONSTANT    BOT_MVMT_MASK,  F0
 
 CONSTANT    BOT_MVMT_STOP,  00
@@ -332,7 +343,7 @@ CONSTANT    SP_LF_EOL,      43      ; Boolean flag to indicate if the bot is don
 CONSTANT    SP_OLD_X,       44      ; Old value of X-coordinate
 CONSTANT    SP_OLD_Y,       45      ; Old value of Y-coordinate
 CONSTANT    SP_OLD_HEADING, 46      ; Old heading
-CONSTANT    SP_DEBUG,       47
+CONSTANT    SP_DEBUG,       47      ; Debug scratchpad memory
 
 ; ================================
 ; === Line following constants ===
@@ -740,7 +751,7 @@ follow_line:                                    ; The robot is still following t
         FETCH       s0, SP_OLD_X                ; Get the old X
         FETCH       s1, SP_OLD_Y                ; Get the old Y-coordinate
         FETCH       s2, SP_OLD_HEADING          ; Get the old heading
-        AND         s2, 0F                      ; HACK to get lowest 4 bits (orient + reserved)
+        AND         s2, 0F                      ; Get lowest 4 bits (orient + reserved). Reserved bit initialized to 1, botInfo only returns 0 for reserved.
         LOAD        s3, Botinf
         AND         s3, 0F
         COMPARE     s0, LocX                    ; Check to see if X changed
@@ -749,70 +760,59 @@ follow_line:                                    ; The robot is still following t
         JUMP        NZ, new_command             ; Jump to new command if changed  
         COMPARE     s2, s3                      ; Check to see if heading changed
         JUMP        NZ, new_command             
-        RETURN                                  ; Skip update if movement from previous update hasn't happened yet        
+        RETURN                                  ; Skip update if movement from nothing has changed since last command issued        
         
 new_command:         
-        FETCH       s2, SP_LF_STATE
-        LOAD        s1, 00
-        CALL        LED_wrleds_hi
-        LOAD        s0, Sensor                  ;       getSensorState();    
-        AND         s0, MASK_BLK_L_SENSORS      ;
-        COMPARE     s0, BLACK_LINE_DETECTED     ;   check for black line
+        FETCH       s2, SP_LF_STATE             ; Debug code
+        LOAD        s1, 00                      ; Debug code   
+        CALL        LED_wrleds_hi               ; Debug code
+        LOAD        s0, Sensor                  ;   temp = _getSensorState();    
+        AND         s0, MASK_BLK_L_SENSORS      ;   black_line_detected = temp & MASK
+        COMPARE     s0, BLACK_LINE_DETECTED     ;   
         JUMP        NZ, line_not_found
-line_found:                                     ;   if(line_found):
-        COMPARE     s2, LF_FORWARD              ;       if bot_mvmt == forward:
-                                                ;           //Previous movement was forward and moved onto black line       
+line_found:                                     ;   if(black_line_detected):
+        COMPARE     s2, LF_FORWARD              ;       if old_state == forward:
+                                                ;           #Previous movement was forward and moved onto black line       
         JUMP        NZ, line_found_rev
 line_found_fwd:
-        LOAD        s1, 01
-        CALL        LED_wrleds_hi
+        LOAD        s1, 01                      ;Debug code
+        CALL        LED_wrleds_hi               ;Debug code
         CALL        reset_turn_state            ;           reset_turn_state()  //Successfully found line, reset turning state variables
         CALL        try_forward                 ;           try_forward()
         JUMP        end_next_step
 line_found_rev:
-        LOAD        s1, 02
-        CALL        LED_wrleds_hi
-        COMPARE     s2, LF_REVERSE
+        LOAD        s1, 02                      ;Debug code
+        CALL        LED_wrleds_hi               ;Debug code
+        COMPARE     s2, LF_REVERSE              ;    
                                                 ;       else if bot_mvmt == reverse:
         JUMP        NZ, line_found_else
         CALL        turn                        ;           turn()  //Previously reversed back onto known line
-        JUMP        end_next_step
-;line_try_turn:
-;        COMPARE     s2, BOT_MVMT_FL
-;        JUMP        Z, line_found_turn
-;        COMPARE     s2, BOT_MVMT_FR
-;        JUMP        Z, line_found_turn
-;        COMPARE     s2, BOT_MVMT_SL
-;        JUMP        Z, line_found_turn
-;        COMPARE     s2, BOT_MVMT_SR
-;        JUMP        NZ, line_found_else
-;line_found_turn:
-    
+        JUMP        end_next_step 
                                                 ;       else (stopped, turning, other)
 line_found_else:
-        LOAD        s1, 04
-        CALL        LED_wrleds_hi
+        LOAD        s1, 04                      ;Debug code
+        CALL        LED_wrleds_hi               ;Debug code
         CALL        try_forward                 ;           try_forward()   //If turning, need to move forward. If stopped or other, try moving forward
         JUMP        end_next_step
 
 line_not_found:                                 ;   else:
         COMPARE     s2, LF_FORWARD
         Jump        NZ, line_not_found_else
-        LOAD        s1, 08
-        CALL        LED_wrleds_hi
+        LOAD        s1, 08                      ;Debug code
+        CALL        LED_wrleds_hi               ;Debug code
         CALL        reverse                     ;       if(bot_mvmt == forward): reverse();
         Jump        end_next_step
 line_not_found_else:
-        LOAD        s1, 10
-        CALL        LED_wrleds_hi
-        CALL        end_of_line             ;       else: end_of_line();    
+        LOAD        s1, 10                      ;Debug code
+        CALL        LED_wrleds_hi               ;Debug code
+        CALL        end_of_line                 ;       else: end_of_line()    
         JUMP        end_next_step
     
-end_next_step:                                  ;   capture current location and heading
-        STORE       LocX, SP_OLD_X
-        STORE       LocY, SP_OLD_Y
-        STORE       Botinf, SP_OLD_HEADING
-        STORE       s2, SP_LF_STATE
+end_next_step:                                  ;   capture_current_state()
+        STORE       LocX, SP_OLD_X              ;   # Current X coordinate is saved    
+        STORE       LocY, SP_OLD_Y              ;   # Current Y coordinate is saved
+        STORE       Botinf, SP_OLD_HEADING      ;   # Current heading is saved
+        STORE       s2, SP_LF_STATE             ;   # Most recent command issued is saved, used as old_state in next iteration
         RETURN                                  ;   return
         
 ; =====================================
@@ -827,8 +827,8 @@ try_forward:                                    ;   def try_forward():
         RETURN                                  ;       else:
 move_forward:
         LOAD        s0, SP_LFRF                 ;
-        LOAD        s2, LF_FORWARD
-        OUTPUT      s0, PA_MOTCTL_IN            ;           motor_ctl_in = LeftForward, RightForward
+        LOAD        s2, LF_FORWARD              ;           new_state = FORWARD
+        OUTPUT      s0, PA_MOTCTL_IN            ;           _forward())
         RETURN
 
 ; =====================================
@@ -848,14 +848,14 @@ turn_check_180:
         COMPARE     s0, LF_SKIP_180_COUNT       ;
         JUMP        NZ, turn_else               ;
         LOAD        s1, SP_LFRR                 ;
-        OUTPUT      s1, PA_MOTCTL_IN            ;           turn_right_2x()
+        OUTPUT      s1, PA_MOTCTL_IN            ;           _turn_right_2x()
         ADD         s0, 02                      ;           turn_count += 2 
-        LOAD        s2, LF_TURNING
+        LOAD        s2, LF_TURNING              ;           new_state = TURNING    
         JUMP        turn_end
 turn_else:                                      ;       else:
         LOAD        s1, SP_LFRS                 ;
-        OUTPUT      s1, PA_MOTCTL_IN            ;           turn_right_1x()
-        LOAD        s2, LF_TURNING
+        OUTPUT      s1, PA_MOTCTL_IN            ;           _turn_right_1x()
+        LOAD        s2, LF_TURNING              ;           new_state = TURNING 
         ADD         s0, 01                      ;           turn_count += 1
 turn_end:
         STORE       s0, SP_LF_COUNT
@@ -867,7 +867,7 @@ turn_end:
 reverse:                                        ;   def reverse():
         LOAD        s0, SP_LRRR                 ;
         OUTPUT      s0, PA_MOTCTL_IN            ;       motor_ctl_in = LeftReverse, RightReverse
-        LOAD        s2, LF_REVERSE
+        LOAD        s2, LF_REVERSE              ;       new_state = REVERSE 
         RETURN
 
 ; =====================================
@@ -878,16 +878,16 @@ end_of_line:
         OUTPUT      s0, PA_MOTCTL_IN            ; Stop the bot    
         LOAD        s6, LF_END_OF_LINE          ; Set the end of line flag
         STORE       s6, SP_LF_EOL
-        LOAD        s2, LF_STOP
+        LOAD        s2, LF_STOP                 ;       new_state = STOP 
         RETURN   
 ; =====================================
 ; === reset_turn_state ================
 ; =====================================  
 reset_turn_state:
         LOAD        s6, 00
-        STORE       s6, SP_LF_COUNT
-        LOAD        s6, LF_TURN_DIR_RIGHT
-        STORE       s6, SP_LF_DIR
+        STORE       s6, SP_LF_COUNT             ;   Reset turn count to 0
+        LOAD        s6, LF_TURN_DIR_RIGHT       ;   No longer used
+        STORE       s6, SP_LF_DIR               ;   No longer used
         RETURN         
 				
 ;*************************
